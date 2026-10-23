@@ -15,10 +15,10 @@ namespace LetsGoSeewo3
         const string TITLE = "Let's_Go!Seewo3!";
         const string OFFICIAL_PAGE = "https://e.seewo.com/product/EasiNote3";
 
-        // 下载源：按顺序尝试。官方已下架，保留做兜底；也可放同目录本地包
-        static readonly string[] SOURCES = new string[] {
-            "https://e.seewo.com/download/file?code=EasiNote3&&version=3.1.2.3606"
-        };
+        // 希沃官方 OSS 直链（2019-08-30 发布版），必须带 Referer 否则 403
+        const string OFFICIAL_URL = "https://oss1.seewo.com/software/SeewoYiJiaSoftWares/Easinote3/EasiNoteSetup_3.1.2.3606.exe";
+        const string REFERER = "https://e.seewo.com/";
+        const long EXPECTED_SIZE = 384671976L;
 
         private Label lblStatus;
         private Button btnMain;
@@ -75,7 +75,6 @@ namespace LetsGoSeewo3
             this.Controls.Add(btnMain);
 
             lblHint = new Label();
-            lblHint.Text = "";
             lblHint.Font = new Font("微软雅黑", 8.5f);
             lblHint.ForeColor = Color.FromArgb(130, 135, 145);
             lblHint.Location = new Point(22, 224);
@@ -85,11 +84,10 @@ namespace LetsGoSeewo3
 
         void Log(string m)
         {
-            try { File.AppendAllText(Path.Combine(baseDir, "seewo3.log"), DateTime.Now.ToString("HH:mm:ss ") + m + Environment.NewLine, Encoding.UTF8); }
+            try { File.AppendAllText(Path.Combine(baseDir, "seewo3.log"), DateTime.Now.ToString("MM-dd HH:mm:ss  ") + m + Environment.NewLine, Encoding.UTF8); }
             catch { }
         }
 
-        // ---------- 查找白板3 ----------
         string FindEasiNote()
         {
             string[] c = new string[] {
@@ -98,7 +96,8 @@ namespace LetsGoSeewo3
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Seewo\EasiNote\Main\EasiNote.exe"),
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), @"Seewo\EasiNote\Main\EasiNote.exe"),
                 @"D:\Seewo\EasiNote\Main\EasiNote.exe",
-                @"C:\Seewo\EasiNote\Main\EasiNote.exe"
+                @"C:\Seewo\EasiNote\Main\EasiNote.exe",
+                Path.Combine(baseDir, @"EasiNote\Main\EasiNote.exe")
             };
             foreach (string p in c) { try { if (File.Exists(p)) return p; } catch { } }
             try
@@ -156,18 +155,19 @@ namespace LetsGoSeewo3
         {
             try
             {
-                string[] a = Directory.GetFiles(baseDir, "*.exe");
-                foreach (string f in a)
+                foreach (string f in Directory.GetFiles(baseDir, "*.exe"))
                 {
                     string n = Path.GetFileName(f).ToLowerInvariant();
                     if (n.IndexOf("easinote") >= 0 && n.IndexOf("setup") >= 0) return f;
                 }
+                // 缓存目录里下载过的
+                string cached = Path.Combine(baseDir, "EasiNoteSetup_3.1.2.3606.exe");
+                if (File.Exists(cached) && new FileInfo(cached).Length == EXPECTED_SIZE) return cached;
             }
             catch { }
             return null;
         }
 
-        // ---------- 打兼容配置 ----------
         void ApplyFix()
         {
             try
@@ -192,7 +192,6 @@ namespace LetsGoSeewo3
             catch { }
         }
 
-        // ---------- 桌面快捷方式 ----------
         void EnsureShortcut()
         {
             try
@@ -221,25 +220,22 @@ namespace LetsGoSeewo3
                 lblStatus.ForeColor = Color.FromArgb(85, 210, 130);
                 btnMain.Text = "启 动";
                 btnMain.BackColor = Color.FromArgb(0, 150, 100);
-                lblHint.Text = "点上面按钮：自动打兼容配置 → 打开希沃白板3\n\n程序位置：" + easiNoteExe;
+                lblHint.Text = "点上面按钮：自动打兼容配置 → 打开希沃白板3\n\n" + easiNoteExe;
+                return;
+            }
+            lblStatus.Text = "● 没找到白板3";
+            lblStatus.ForeColor = Color.FromArgb(235, 125, 105);
+            if (FindLocalSetup() != null)
+            {
+                btnMain.Text = "安 装 并 启 动";
+                btnMain.BackColor = Color.FromArgb(150, 100, 0);
+                lblHint.Text = "同目录已有安装包，点按钮静默安装并自动配置。";
             }
             else
             {
-                lblStatus.Text = "● 没找到白板3";
-                lblStatus.ForeColor = Color.FromArgb(235, 125, 105);
-                string local = FindLocalSetup();
-                if (local != null)
-                {
-                    btnMain.Text = "安 装 并 启 动";
-                    btnMain.BackColor = Color.FromArgb(150, 100, 0);
-                    lblHint.Text = "同目录发现安装包：\n" + Path.GetFileName(local) + "\n点上面按钮静默安装并自动配置。";
-                }
-                else
-                {
-                    btnMain.Text = "下 载 并 安 装";
-                    btnMain.BackColor = Color.FromArgb(55, 100, 155);
-                    lblHint.Text = "希沃官方已下架白板3 的下载（产品页还在但没有安装包）。\n\n最简单：把 EasiNoteSetup_*.exe 放到本目录，\n再点上面的按钮，它就会自动装好并配置。";
-                }
+                btnMain.Text = "下 载 并 安 装";
+                btnMain.BackColor = Color.FromArgb(55, 100, 155);
+                lblHint.Text = "将从希沃官方服务器下载白板3（约 384 MB），\n装好会自动打兼容配置并启动。\n\n第一次用请耐心等下载完。";
             }
         }
 
@@ -253,12 +249,10 @@ namespace LetsGoSeewo3
         {
             if (busy) return;
             RefreshState();
-
             if (easiNoteExe != null) { Launch(); return; }
-
             string local = FindLocalSetup();
             if (local != null) { Install(local); return; }
-            TryDownload();
+            Download();
         }
 
         void Launch()
@@ -287,74 +281,78 @@ namespace LetsGoSeewo3
             {
                 ProcessStartInfo psi = new ProcessStartInfo(setupPath, "/S");
                 psi.UseShellExecute = true;
-                psi.WorkingDirectory = baseDir;
+                psi.WorkingDirectory = Path.GetDirectoryName(setupPath);
                 Process p = Process.Start(psi);
-                if (p != null)
-                {
-                    if (!p.WaitForExit(600000)) { MessageBox.Show(this, "安装超时。", TITLE); }
-                }
+                if (p != null) p.WaitForExit(900000);
             }
             catch (Exception ex) { MessageBox.Show(this, "安装启动失败：" + ex.Message, TITLE); }
-            System.Threading.Thread.Sleep(2500);
+            System.Threading.Thread.Sleep(3000);
             busy = false;
             btnMain.Enabled = true;
             RefreshState();
-            if (easiNoteExe != null) { Launch(); }
+            if (easiNoteExe != null) Launch();
             else
             {
-                lblStatus.Text = "● 安装后仍未找到";
+                lblStatus.Text = "● 装完仍没找到";
                 lblStatus.ForeColor = Color.FromArgb(235, 125, 105);
-                lblHint.Text = "可能安装被取消了，或被安全软件拦住。\n装好后重新打开本程序即可。";
+                lblHint.Text = "可能被安全软件拦了。装好后重开本程序即可。";
             }
         }
 
-        void TryDownload()
+        void Download()
         {
-            string target = Path.Combine(Path.GetTempPath(), "EasiNoteSetup_download.exe");
+            string target = Path.Combine(baseDir, "EasiNoteSetup_3.1.2.3606.exe");
             busy = true;
             btnMain.Enabled = false;
-            lblStatus.Text = "● 正在连接官方下载源...";
+            lblStatus.Text = "● 正在连接官方服务器...";
             lblStatus.ForeColor = Color.Silver;
 
             WebClient wc = new WebClient();
             wc.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
+            wc.Headers.Add("Referer", REFERER);
+
             wc.DownloadProgressChanged += delegate(object s, DownloadProgressChangedEventArgs ev)
             {
-                lblStatus.Text = "● 下载中 " + ev.ProgressPercentage + "%";
+                double gotMb = ev.BytesReceived / 1048576.0;
+                double totMb = ev.TotalBytesToReceive / 1048576.0;
+                lblStatus.Text = string.Format("● 下载中 {0}%   {1:F0}/{2:F0} MB", ev.ProgressPercentage, gotMb, totMb);
             };
+
             wc.DownloadFileCompleted += delegate(object s, AsyncCompletedEventArgs ev)
             {
                 busy = false;
                 btnMain.Enabled = true;
-                if (ev.Error != null || !File.Exists(target) || new FileInfo(target).Length < 1000000)
+                bool ok = (ev.Error == null) && File.Exists(target);
+                long len = 0;
+                if (ok) { try { len = new FileInfo(target).Length; } catch { } }
+                if (ok && len != EXPECTED_SIZE)
                 {
-                    lblStatus.Text = "● 官方源不可用";
+                    ok = false;
+                    try { File.Delete(target); } catch { }
+                    MessageBox.Show(this, "下载的文件大小不对（" + len + " 字节），可能被拦截了。", TITLE);
+                }
+                if (!ok)
+                {
+                    if (ev.Error != null) Log("下载失败: " + ev.Error.Message);
+                    lblStatus.Text = "● 下载失败";
                     lblStatus.ForeColor = Color.FromArgb(235, 125, 105);
-                    if (File.Exists(target)) { try { File.Delete(target); } catch { } }
                     DialogResult r = MessageBox.Show(this,
-                        "希沃官方已经不再提供白板3 的下载了。\n\n" +
-                        "要不要打开官方产品页看看？\n" +
-                        "（更快的办法：把安装包 exe 放到本程序同目录，再点按钮）",
-                        TITLE, MessageBoxButtons.YesNo, MessageBoxIcon.Information);
-                    if (r == DialogResult.Yes)
-                    {
-                        try { Process.Start(OFFICIAL_PAGE); } catch { }
-                    }
+                        "从官方服务器下载失败。\n\n可以试试：\n1. 打开官方产品页自己下（点是）\n2. 或者把 EasiNoteSetup_*.exe 放到本程序同目录\n\n原因：" + (ev.Error != null ? ev.Error.Message : "文件校验失败"),
+                        TITLE, MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                    if (r == DialogResult.Yes) { try { Process.Start(OFFICIAL_PAGE); } catch { } }
                     RefreshState();
                     return;
                 }
-                Log("下载完成: " + target);
+                Log("下载完成: " + target + " (" + len + " 字节)");
                 Install(target);
             };
-            try
-            {
-                wc.DownloadFileAsync(new Uri(SOURCES[0]), target);
-            }
+
+            try { wc.DownloadFileAsync(new Uri(OFFICIAL_URL), target); }
             catch (Exception ex)
             {
                 busy = false;
                 btnMain.Enabled = true;
-                MessageBox.Show(this, "下载失败：" + ex.Message, TITLE);
+                MessageBox.Show(this, "下载启动失败：" + ex.Message, TITLE);
                 RefreshState();
             }
         }

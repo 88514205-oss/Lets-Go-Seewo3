@@ -1,6 +1,6 @@
 # Let's_Go!Seewo3!
 
-一个 **15 KB** 的小工具，让 **希沃白板3** 在 Windows 11 一体机上能正常启动。
+一个 **16 KB** 的小工具，让 **希沃白板3** 在 Windows 11 一体机上能正常启动，并且能**从希沃官方服务器自动下载安装**。
 
 ## 解决什么问题
 
@@ -11,15 +11,16 @@
 
 ## 它做什么
 
-点一下「启动」：
+点一下按钮：
 
-1. 自动找到白板3 的安装位置（注册表 + 常见路径，不用你配）
-2. 关闭 WPF 硬件加速 + 设 Windows 7 兼容模式 + 禁用全屏优化
+1. 自动找到白板3 的安装位置
+2. 打兼容配置（关硬件加速 + Win7 兼容模式 + 禁用全屏优化）
 3. 打开白板3
 
-没装白板3 时，按钮会变成「下载并安装」或「安装并启动」。
+没装白板3 时，按钮会变成「**下载并安装**」：
+从希沃官方 OSS 拉安装包（384 MB）→ NSIS `/S` 静默安装 → 打配置 → 启动。
 
-**零配置**：没有任何 ini / 配置文件，打开就能用。
+**零配置**：没有任何 ini / 配置文件。
 
 ## 为什么必须"每次启动都打一遍"
 
@@ -31,28 +32,26 @@
 所以每次重启后那两个关键设置会消失，白板3 又卡回 100%。
 本工具每次启动前重新打一遍，就绕过了还原。
 
-## 用法
+## 官方下载直链（重点）
 
-1. 把 `exe` 放到 **D 盘**（不被还原的盘）
-2. 双击 → 点「启动」
-3. 第一次运行会自动在桌面建快捷方式
+希沃的下载页 `https://e.seewo.com/product/EasiNote3` 现在已经把白板3 的条目清空了
+（页面还在，但 `downloadUrl` 只剩白板5 的）。不过文件本身还在 OSS 上：
 
-## 关于"下载安装"
+```
+https://oss1.seewo.com/software/SeewoYiJiaSoftWares/Easinote3/EasiNoteSetup_3.1.2.3606.exe
+```
 
-⚠️ **希沃官方已经下架白板3 的下载**。
+**这个链接必须带 Referer，否则 403（denied by Referer ACL）：**
 
-白糖实测过：
+| 请求 | 结果 |
+|---|---|
+| 不带 Referer | `403 Forbidden` |
+| 带 `Referer: https://e.seewo.com/` | `200`，`Content-Length: 384671976`，`Last-Modified: 2019-08-30` |
 
-- 产品页 `https://e.seewo.com/product/EasiNote3` 还在（标题仍是"希沃白板3"）
-- 但页面数据里的 `downloadUrl` 已被清空，只剩白板5 的条目
-- 直接请求下载接口 `e.seewo.com/download/file?code=EasiNote3&version=3.1.2.3606` 返回 **403**
+本工具在 `WebClient` 里设了 `Referer` 头，所以能正常下载。
 
-所以本工具的策略是：
-
-1. 同目录有 `EasiNoteSetup_*.exe` → 直接静态安装（NSIS `/S` 静默）
-2. 否则尝试官方直链 → 失败会提示你自备安装包，并给出官网页面
-
-**本仓库不包含、也不分发希沃白板3 的任何文件。**
+小提示：某些 CDN 节点的 TLS 配置可能导致 `curl` 握手失败（exit 35），
+但 .NET 的 TLS 栈正常，不受影响。
 
 ## 改了哪些注册表
 
@@ -64,20 +63,18 @@
 | `Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers` | Win7 兼容模式 + 禁用全屏优化 |
 | `Software\Seewo\EasiNote\MachineID` | 补用户标识（仅在该值缺失时） |
 
-不修改系统文件、不装服务、不联网（除下载外）。
-
 ## 自己编译
 
 ```
 build.bat
 ```
 
-只要系统自带的 .NET Framework 4.x，不需要装 VS。
+只要系统自带的 .NET Framework 4.x。
 
 ## 免责说明
 
 - 与希沃（Seewo / 广州视睿电子科技有限公司）无关，是第三方兼容性补丁
-- 不含、不分发希沃白板3 的任何文件，请通过正规渠道获取
+- 安装包从希沃官方 OSS 下载，**本仓库不包含、不分发任何希沃文件**
 - exe 无数字签名，首次运行 SmartScreen 可能提示，属正常现象
 
 ## License
