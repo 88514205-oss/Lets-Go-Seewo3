@@ -1,0 +1,8 @@
+# Build output
+*.exe
+*.pdb
+*.log
+
+# Temp
+bin/
+obj/
