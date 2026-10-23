@@ -1,23 +1,32 @@
-using System;
+﻿using System;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
-using System.Reflection;
+using System.Net;
 using System.Text;
 using System.Windows.Forms;
 using Microsoft.Win32;
 
-namespace EasiNoteLauncher
+namespace LetsGoSeewo3
 {
     public class MainForm : Form
     {
-        const string APP_TITLE = "希沃白板3 启动器";
-        private Label lblStatus, lblPath, lblTip;
-        private Button btnStart, btnFix, btnInstall;
-        private CheckBox chkAuto;
+        const string TITLE = "Let's_Go!Seewo3!";
+        const string OFFICIAL_PAGE = "https://e.seewo.com/product/EasiNote3";
+
+        // 下载源：按顺序尝试。官方已下架，保留做兜底；也可放同目录本地包
+        static readonly string[] SOURCES = new string[] {
+            "https://e.seewo.com/download/file?code=EasiNote3&&version=3.1.2.3606"
+        };
+
+        private Label lblStatus;
+        private Button btnMain;
+        private Label lblHint;
 
         private string baseDir;
         private string easiNoteExe;
+        private bool busy;
 
         public MainForm()
         {
@@ -28,140 +37,70 @@ namespace EasiNoteLauncher
 
         void BuildUI()
         {
-            this.Text = APP_TITLE;
-            this.ClientSize = new Size(560, 424);
+            this.Text = TITLE;
+            this.ClientSize = new Size(500, 330);
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
             this.StartPosition = FormStartPosition.CenterScreen;
-            this.BackColor = Color.FromArgb(30, 34, 42);
-            this.Font = new Font("微软雅黑", 10.5f);
+            this.BackColor = Color.FromArgb(24, 27, 33);
+            this.Font = new Font("微软雅黑", 10f);
 
             Label t = new Label();
-            t.Text = APP_TITLE;
-            t.Font = new Font("微软雅黑", 17f, FontStyle.Bold);
+            t.Text = TITLE;
+            t.Font = new Font("微软雅黑", 20f, FontStyle.Bold);
             t.ForeColor = Color.White;
-            t.Location = new Point(22, 16);
-            t.Size = new Size(510, 38);
+            t.Location = new Point(20, 18);
+            t.Size = new Size(460, 40);
             this.Controls.Add(t);
 
             lblStatus = new Label();
-            lblStatus.Text = "正在查找白板3...";
-            lblStatus.Font = new Font("微软雅黑", 11f);
+            lblStatus.Text = "正在检测...";
+            lblStatus.Font = new Font("微软雅黑", 12f);
             lblStatus.ForeColor = Color.Silver;
-            lblStatus.Location = new Point(24, 62);
-            lblStatus.Size = new Size(510, 26);
+            lblStatus.Location = new Point(22, 78);
+            lblStatus.Size = new Size(456, 30);
             this.Controls.Add(lblStatus);
 
-            lblPath = new Label();
-            lblPath.Text = "";
-            lblPath.Font = new Font("微软雅黑", 8.5f);
-            lblPath.ForeColor = Color.FromArgb(110, 150, 205);
-            lblPath.Location = new Point(24, 88);
-            lblPath.Size = new Size(512, 34);
-            this.Controls.Add(lblPath);
+            btnMain = new Button();
+            btnMain.Text = "启 动";
+            btnMain.Location = new Point(20, 122);
+            btnMain.Size = new Size(460, 90);
+            btnMain.FlatStyle = FlatStyle.Flat;
+            btnMain.FlatAppearance.BorderSize = 0;
+            btnMain.BackColor = Color.FromArgb(0, 150, 100);
+            btnMain.ForeColor = Color.White;
+            btnMain.Font = new Font("微软雅黑", 20f, FontStyle.Bold);
+            btnMain.Cursor = Cursors.Hand;
+            btnMain.Click += new EventHandler(OnMainClick);
+            this.Controls.Add(btnMain);
 
-            btnStart = MakeBtn("启 动 白 板 3", 24, 128, 512, 66, Color.FromArgb(0, 145, 95), 17f);
-            btnStart.Click += new EventHandler(OnStart);
-
-            btnFix = MakeBtn("修 复 设 置", 24, 206, 248, 54, Color.FromArgb(45, 88, 140), 13f);
-            btnFix.Click += new EventHandler(OnFix);
-
-            btnInstall = MakeBtn("重 新 查 找", 288, 206, 248, 54, Color.FromArgb(82, 74, 120), 13f);
-            btnInstall.Click += new EventHandler(OnRescan);
-
-            chkAuto = new CheckBox();
-            chkAuto.Text = "启动前自动打一遍设置（强烈建议勾选）";
-            chkAuto.ForeColor = Color.Silver;
-            chkAuto.Font = new Font("微软雅黑", 10f);
-            chkAuto.Location = new Point(26, 274);
-            chkAuto.Size = new Size(500, 28);
-            chkAuto.Checked = true;
-            this.Controls.Add(chkAuto);
-
-            lblTip = new Label();
-            lblTip.Text = "";
-            lblTip.Font = new Font("微软雅黑", 8.8f);
-            lblTip.ForeColor = Color.FromArgb(145, 145, 155);
-            lblTip.Location = new Point(26, 310);
-            lblTip.Size = new Size(508, 100);
-            this.Controls.Add(lblTip);
+            lblHint = new Label();
+            lblHint.Text = "";
+            lblHint.Font = new Font("微软雅黑", 8.5f);
+            lblHint.ForeColor = Color.FromArgb(130, 135, 145);
+            lblHint.Location = new Point(22, 224);
+            lblHint.Size = new Size(458, 88);
+            this.Controls.Add(lblHint);
         }
 
-        Button MakeBtn(string text, int x, int y, int w, int h, Color c, float fs)
+        void Log(string m)
         {
-            Button b = new Button();
-            b.Text = text;
-            b.Location = new Point(x, y);
-            b.Size = new Size(w, h);
-            b.FlatStyle = FlatStyle.Flat;
-            b.FlatAppearance.BorderSize = 0;
-            b.BackColor = c;
-            b.ForeColor = Color.White;
-            b.Font = new Font("微软雅黑", fs, FontStyle.Bold);
-            b.Cursor = Cursors.Hand;
-            this.Controls.Add(b);
-            return b;
-        }
-
-        void Log(string msg)
-        {
-            try
-            {
-                File.AppendAllText(Path.Combine(baseDir, "launcher.log"),
-                    DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "  " + msg + Environment.NewLine,
-                    Encoding.UTF8);
-            }
+            try { File.AppendAllText(Path.Combine(baseDir, "seewo3.log"), DateTime.Now.ToString("HH:mm:ss ") + m + Environment.NewLine, Encoding.UTF8); }
             catch { }
         }
 
+        // ---------- 查找白板3 ----------
         string FindEasiNote()
         {
-            string[] cands = new string[] {
+            string[] c = new string[] {
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Seewo\EasiNote\Main\EasiNote.exe"),
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"Seewo\EasiNote\Main\EasiNote.exe"),
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Seewo\EasiNote\Main\EasiNote.exe"),
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), @"Seewo\EasiNote\Main\EasiNote.exe"),
                 @"D:\Seewo\EasiNote\Main\EasiNote.exe",
-                @"C:\Seewo\EasiNote\Main\EasiNote.exe",
-                Path.Combine(baseDir, @"EasiNote\Main\EasiNote.exe"),
-                Path.Combine(baseDir, @"Seewo\EasiNote\Main\EasiNote.exe")
+                @"C:\Seewo\EasiNote\Main\EasiNote.exe"
             };
-            foreach (string c in cands) { try { if (File.Exists(c)) return c; } catch { } }
-
-            try
-            {
-                string[] roots = new string[] {
-                    @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall",
-                    @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
-                };
-                foreach (string root in roots)
-                {
-                    using (RegistryKey k = Registry.LocalMachine.OpenSubKey(root))
-                    {
-                        if (k == null) continue;
-                        foreach (string name in k.GetSubKeyNames())
-                        {
-                            try
-                            {
-                                using (RegistryKey sub = k.OpenSubKey(name))
-                                {
-                                    if (sub == null) continue;
-                                    object o = sub.GetValue("DisplayIcon");
-                                    if (o == null) continue;
-                                    string icon = o.ToString().Trim().Trim('"');
-                                    int comma = icon.LastIndexOf(',');
-                                    if (comma > 0) icon = icon.Substring(0, comma);
-                                    if (icon.IndexOf("EasiNote.exe", StringComparison.OrdinalIgnoreCase) >= 0 && File.Exists(icon))
-                                        return icon;
-                                }
-                            }
-                            catch { }
-                        }
-                    }
-                }
-            }
-            catch { }
-
+            foreach (string p in c) { try { if (File.Exists(p)) return p; } catch { } }
             try
             {
                 using (RegistryKey k = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\Seewo\EasiNote"))
@@ -178,80 +117,72 @@ namespace EasiNoteLauncher
                 }
             }
             catch { }
-            return null;
-        }
-
-        void RefreshStatus()
-        {
-            easiNoteExe = FindEasiNote();
-            if (easiNoteExe != null)
-            {
-                lblStatus.Text = "● 已找到白板3";
-                lblStatus.ForeColor = Color.FromArgb(80, 205, 125);
-                lblPath.Text = easiNoteExe;
-                lblTip.Text = "程序在 C 盘没被还原，所以不用重装。\n每次点「启动」都会先把设置打一遍，再打开白板3。\n还原只影响设置，这一下就补回来了。";
-                btnStart.Enabled = true;
-                btnFix.Enabled = true;
-            }
-            else
-            {
-                lblStatus.Text = "● 没找到白板3";
-                lblStatus.ForeColor = Color.FromArgb(235, 120, 100);
-                lblPath.Text = "常见位置都没找到 EasiNote.exe";
-                lblTip.Text = "如果白板3 装在别的路径，先手动打开一次确认能启动，\n再点「重新查找」。";
-                btnStart.Enabled = false;
-                btnFix.Enabled = false;
-            }
-        }
-
-        void EnsureDesktopShortcut()
-        {
             try
             {
-                string lnk = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "启动 希沃白板3.lnk");
-                if (File.Exists(lnk)) return;
-                Type t = Type.GetTypeFromProgID("WScript.Shell");
-                if (t == null) return;
-                object ws = Activator.CreateInstance(t);
-                object sc = t.InvokeMember("CreateShortcut", BindingFlags.InvokeMethod, null, ws, new object[] { lnk });
-                Type st = sc.GetType();
-                st.InvokeMember("TargetPath", BindingFlags.SetProperty, null, sc, new object[] { Application.ExecutablePath });
-                st.InvokeMember("WorkingDirectory", BindingFlags.SetProperty, null, sc, new object[] { Application.StartupPath });
-                st.InvokeMember("IconLocation", BindingFlags.SetProperty, null, sc, new object[] { Application.ExecutablePath + ",0" });
-                st.InvokeMember("Description", BindingFlags.SetProperty, null, sc, new object[] { "点这个启动白板3（会自动修复设置）" });
-                st.InvokeMember("Save", BindingFlags.InvokeMethod, null, sc, null);
-                Log("已重建桌面快捷方式");
-            }
-            catch { }
-        }
-
-        void OnLoad(object sender, EventArgs e)
-        {
-            Log("启动器打开，位置=" + baseDir);
-            EnsureDesktopShortcut();
-            RefreshStatus();
-        }
-
-        int ApplyFix()
-        {
-            int ok = 0;
-            try
-            {
-                using (RegistryKey k = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Avalon.Graphics"))
-                    if (k != null) { k.SetValue("DisableHWAcceleration", 1, RegistryValueKind.DWord); ok++; }
-            }
-            catch { }
-
-            try
-            {
-                if (!string.IsNullOrEmpty(easiNoteExe))
+                string[] roots = new string[] {
+                    @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall",
+                    @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
+                };
+                foreach (string root in roots)
                 {
-                    using (RegistryKey k = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"))
-                        if (k != null) { k.SetValue(easiNoteExe, "~ WIN7RTM DISABLEDXMAXIMIZEDWINDOWEDMODE", RegistryValueKind.String); ok++; }
+                    using (RegistryKey k = Registry.LocalMachine.OpenSubKey(root))
+                    {
+                        if (k == null) continue;
+                        foreach (string n in k.GetSubKeyNames())
+                        {
+                            try
+                            {
+                                using (RegistryKey s = k.OpenSubKey(n))
+                                {
+                                    if (s == null) continue;
+                                    object o = s.GetValue("DisplayIcon");
+                                    if (o == null) continue;
+                                    string icon = o.ToString().Trim().Trim('"');
+                                    int cm = icon.LastIndexOf(',');
+                                    if (cm > 0) icon = icon.Substring(0, cm);
+                                    if (icon.IndexOf("EasiNote.exe", StringComparison.OrdinalIgnoreCase) >= 0 && File.Exists(icon)) return icon;
+                                }
+                            }
+                            catch { }
+                        }
+                    }
                 }
             }
             catch { }
+            return null;
+        }
 
+        string FindLocalSetup()
+        {
+            try
+            {
+                string[] a = Directory.GetFiles(baseDir, "*.exe");
+                foreach (string f in a)
+                {
+                    string n = Path.GetFileName(f).ToLowerInvariant();
+                    if (n.IndexOf("easinote") >= 0 && n.IndexOf("setup") >= 0) return f;
+                }
+            }
+            catch { }
+            return null;
+        }
+
+        // ---------- 打兼容配置 ----------
+        void ApplyFix()
+        {
+            try
+            {
+                using (RegistryKey k = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Avalon.Graphics"))
+                    if (k != null) k.SetValue("DisableHWAcceleration", 1, RegistryValueKind.DWord);
+            }
+            catch { }
+            try
+            {
+                if (!string.IsNullOrEmpty(easiNoteExe))
+                    using (RegistryKey k = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"))
+                        if (k != null) k.SetValue(easiNoteExe, "~ WIN7RTM DISABLEDXMAXIMIZEDWINDOWEDMODE", RegistryValueKind.String);
+            }
+            catch { }
             try
             {
                 using (RegistryKey k = Registry.CurrentUser.CreateSubKey(@"Software\Seewo\EasiNote"))
@@ -259,49 +190,173 @@ namespace EasiNoteLauncher
                         k.SetValue("MachineID", Guid.NewGuid().ToString("N").ToUpper(), RegistryValueKind.String);
             }
             catch { }
-
-            Log("打设置: " + ok + "/2");
-            return ok;
         }
 
-        void OnFix(object sender, EventArgs e)
+        // ---------- 桌面快捷方式 ----------
+        void EnsureShortcut()
         {
-            RefreshStatus();
-            if (easiNoteExe == null) { MessageBox.Show(this, "还没找到白板3。", APP_TITLE); return; }
-            int ok = ApplyFix();
-            if (ok == 2) MessageBox.Show(this, "设置已打好。\n\n现在点「启动白板3」就行。", APP_TITLE);
-            else MessageBox.Show(this, "设置有 " + (2 - ok) + " 项没成功，可能被安全软件拦了。\n可以试试右键「以管理员身份运行」本程序。", APP_TITLE);
-        }
-
-        void OnStart(object sender, EventArgs e)
-        {
-            RefreshStatus();
-            if (easiNoteExe == null)
+            try
             {
-                MessageBox.Show(this, "没找到白板3。\n请确认它已经装在这台电脑上。", APP_TITLE);
-                return;
+                string lnk = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "Let's_Go!Seewo3!.lnk");
+                if (File.Exists(lnk)) return;
+                Type ty = Type.GetTypeFromProgID("WScript.Shell");
+                if (ty == null) return;
+                object ws = Activator.CreateInstance(ty);
+                object sc = ty.InvokeMember("CreateShortcut", System.Reflection.BindingFlags.InvokeMethod, null, ws, new object[] { lnk });
+                Type st = sc.GetType();
+                st.InvokeMember("TargetPath", System.Reflection.BindingFlags.SetProperty, null, sc, new object[] { Application.ExecutablePath });
+                st.InvokeMember("WorkingDirectory", System.Reflection.BindingFlags.SetProperty, null, sc, new object[] { Application.StartupPath });
+                st.InvokeMember("IconLocation", System.Reflection.BindingFlags.SetProperty, null, sc, new object[] { Application.ExecutablePath + ",0" });
+                st.InvokeMember("Save", System.Reflection.BindingFlags.InvokeMethod, null, sc, null);
             }
-            if (chkAuto.Checked) ApplyFix();
+            catch { }
+        }
+
+        void RefreshState()
+        {
+            easiNoteExe = FindEasiNote();
+            if (easiNoteExe != null)
+            {
+                lblStatus.Text = "● 白板3 已就绪";
+                lblStatus.ForeColor = Color.FromArgb(85, 210, 130);
+                btnMain.Text = "启 动";
+                btnMain.BackColor = Color.FromArgb(0, 150, 100);
+                lblHint.Text = "点上面按钮：自动打兼容配置 → 打开希沃白板3\n\n程序位置：" + easiNoteExe;
+            }
+            else
+            {
+                lblStatus.Text = "● 没找到白板3";
+                lblStatus.ForeColor = Color.FromArgb(235, 125, 105);
+                string local = FindLocalSetup();
+                if (local != null)
+                {
+                    btnMain.Text = "安 装 并 启 动";
+                    btnMain.BackColor = Color.FromArgb(150, 100, 0);
+                    lblHint.Text = "同目录发现安装包：\n" + Path.GetFileName(local) + "\n点上面按钮静默安装并自动配置。";
+                }
+                else
+                {
+                    btnMain.Text = "下 载 并 安 装";
+                    btnMain.BackColor = Color.FromArgb(55, 100, 155);
+                    lblHint.Text = "希沃官方已下架白板3 的下载（产品页还在但没有安装包）。\n\n最简单：把 EasiNoteSetup_*.exe 放到本目录，\n再点上面的按钮，它就会自动装好并配置。";
+                }
+            }
+        }
+
+        void OnLoad(object sender, EventArgs e)
+        {
+            EnsureShortcut();
+            RefreshState();
+        }
+
+        void OnMainClick(object sender, EventArgs e)
+        {
+            if (busy) return;
+            RefreshState();
+
+            if (easiNoteExe != null) { Launch(); return; }
+
+            string local = FindLocalSetup();
+            if (local != null) { Install(local); return; }
+            TryDownload();
+        }
+
+        void Launch()
+        {
+            ApplyFix();
+            Log("修复+启动: " + easiNoteExe);
             try
             {
                 ProcessStartInfo psi = new ProcessStartInfo(easiNoteExe);
                 psi.UseShellExecute = true;
                 psi.WorkingDirectory = Path.GetDirectoryName(easiNoteExe);
                 Process.Start(psi);
-                Log("已启动: " + easiNoteExe);
                 Application.Exit();
             }
-            catch (Exception ex)
+            catch (Exception ex) { MessageBox.Show(this, "启动失败：" + ex.Message, TITLE); }
+        }
+
+        void Install(string setupPath)
+        {
+            busy = true;
+            btnMain.Enabled = false;
+            lblStatus.Text = "● 正在静默安装，请稍候...";
+            lblStatus.ForeColor = Color.Silver;
+            Application.DoEvents();
+            try
             {
-                MessageBox.Show(this, "启动失败：" + ex.Message, APP_TITLE);
+                ProcessStartInfo psi = new ProcessStartInfo(setupPath, "/S");
+                psi.UseShellExecute = true;
+                psi.WorkingDirectory = baseDir;
+                Process p = Process.Start(psi);
+                if (p != null)
+                {
+                    if (!p.WaitForExit(600000)) { MessageBox.Show(this, "安装超时。", TITLE); }
+                }
+            }
+            catch (Exception ex) { MessageBox.Show(this, "安装启动失败：" + ex.Message, TITLE); }
+            System.Threading.Thread.Sleep(2500);
+            busy = false;
+            btnMain.Enabled = true;
+            RefreshState();
+            if (easiNoteExe != null) { Launch(); }
+            else
+            {
+                lblStatus.Text = "● 安装后仍未找到";
+                lblStatus.ForeColor = Color.FromArgb(235, 125, 105);
+                lblHint.Text = "可能安装被取消了，或被安全软件拦住。\n装好后重新打开本程序即可。";
             }
         }
 
-        void OnRescan(object sender, EventArgs e)
+        void TryDownload()
         {
-            RefreshStatus();
-            if (easiNoteExe != null) MessageBox.Show(this, "找到了：\n" + easiNoteExe, APP_TITLE);
-            else MessageBox.Show(this, "还是没找到。\n\n可以试试右键「以管理员身份运行」本程序，\n或者告诉白糖白板3 装在哪里。", APP_TITLE);
+            string target = Path.Combine(Path.GetTempPath(), "EasiNoteSetup_download.exe");
+            busy = true;
+            btnMain.Enabled = false;
+            lblStatus.Text = "● 正在连接官方下载源...";
+            lblStatus.ForeColor = Color.Silver;
+
+            WebClient wc = new WebClient();
+            wc.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
+            wc.DownloadProgressChanged += delegate(object s, DownloadProgressChangedEventArgs ev)
+            {
+                lblStatus.Text = "● 下载中 " + ev.ProgressPercentage + "%";
+            };
+            wc.DownloadFileCompleted += delegate(object s, AsyncCompletedEventArgs ev)
+            {
+                busy = false;
+                btnMain.Enabled = true;
+                if (ev.Error != null || !File.Exists(target) || new FileInfo(target).Length < 1000000)
+                {
+                    lblStatus.Text = "● 官方源不可用";
+                    lblStatus.ForeColor = Color.FromArgb(235, 125, 105);
+                    if (File.Exists(target)) { try { File.Delete(target); } catch { } }
+                    DialogResult r = MessageBox.Show(this,
+                        "希沃官方已经不再提供白板3 的下载了。\n\n" +
+                        "要不要打开官方产品页看看？\n" +
+                        "（更快的办法：把安装包 exe 放到本程序同目录，再点按钮）",
+                        TITLE, MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+                    if (r == DialogResult.Yes)
+                    {
+                        try { Process.Start(OFFICIAL_PAGE); } catch { }
+                    }
+                    RefreshState();
+                    return;
+                }
+                Log("下载完成: " + target);
+                Install(target);
+            };
+            try
+            {
+                wc.DownloadFileAsync(new Uri(SOURCES[0]), target);
+            }
+            catch (Exception ex)
+            {
+                busy = false;
+                btnMain.Enabled = true;
+                MessageBox.Show(this, "下载失败：" + ex.Message, TITLE);
+                RefreshState();
+            }
         }
 
         [STAThread]
