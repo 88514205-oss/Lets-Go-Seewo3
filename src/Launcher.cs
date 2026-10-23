@@ -38,62 +38,63 @@ namespace LetsGoSeewo3
         void BuildUI()
         {
             this.Text = TITLE;
-            this.ClientSize = new Size(540, 520);
+            this.ClientSize = new Size(480, 470);
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
             this.StartPosition = FormStartPosition.CenterScreen;
-            this.BackColor = Color.FromArgb(24, 27, 33);
+            this.BackColor = Color.FromArgb(13, 13, 13);
             this.Font = new Font("微软雅黑", 10f);
 
             Label t = new Label();
             t.Text = TITLE;
-            t.Font = new Font("微软雅黑", 19f, FontStyle.Bold);
+            t.Font = new Font("微软雅黑", 18f, FontStyle.Bold);
             t.ForeColor = Color.White;
-            t.Location = new Point(18, 14);
-            t.Size = new Size(500, 38);
+            t.Location = new Point(20, 16);
+            t.Size = new Size(440, 36);
             this.Controls.Add(t);
 
             lblStatus = new Label();
             lblStatus.Text = "正在检测...";
-            lblStatus.Font = new Font("微软雅黑", 11.5f);
-            lblStatus.ForeColor = Color.Silver;
-            lblStatus.Location = new Point(20, 56);
-            lblStatus.Size = new Size(500, 26);
+            lblStatus.Font = new Font("微软雅黑", 11f);
+            lblStatus.ForeColor = Color.FromArgb(190, 190, 190);
+            lblStatus.Location = new Point(22, 58);
+            lblStatus.Size = new Size(440, 24);
             this.Controls.Add(lblStatus);
 
             lblPath = new Label();
             lblPath.Text = "";
-            lblPath.Font = new Font("微软雅黑", 8f);
-            lblPath.ForeColor = Color.FromArgb(110, 145, 195);
-            lblPath.Location = new Point(22, 82);
-            lblPath.Size = new Size(498, 20);
+            lblPath.Font = new Font("微软雅黑", 7.5f);
+            lblPath.ForeColor = Color.FromArgb(105, 105, 105);
+            lblPath.Location = new Point(24, 82);
+            lblPath.Size = new Size(438, 18);
             this.Controls.Add(lblPath);
 
-            btnFind = MakeBtn("寻 找", 20, 112, 240, 52, Color.FromArgb(45, 88, 140));
-            btnFind.Click += new EventHandler(OnFind);
-
-            btnDownload = MakeBtn("获 取 下 载 器", 276, 112, 244, 52, Color.FromArgb(88, 74, 130));
-            btnDownload.Click += new EventHandler(OnDownload);
-
-            btnStart = MakeBtn("启 动", 20, 172, 240, 62, Color.FromArgb(0, 150, 100), 15f);
+            // 唯一带颜色的：启动
+            btnStart = MakeBtn("启 动", 20, 110, 440, 64, Color.FromArgb(27, 160, 92), 18f);
             btnStart.Click += new EventHandler(OnStart);
 
-            btnTest = MakeBtn("测 试 环 境", 276, 172, 244, 62, Color.FromArgb(120, 70, 60));
+            // 其余全灰
+            btnFind = MakeBtn("寻 找", 20, 184, 214, 46, Color.FromArgb(38, 38, 38), 12f);
+            btnFind.Click += new EventHandler(OnFind);
+
+            btnDownload = MakeBtn("获 取 下 载 器", 246, 184, 214, 46, Color.FromArgb(38, 38, 38), 12f);
+            btnDownload.Click += new EventHandler(OnDownload);
+
+            btnTest = MakeBtn("测 试 环 境", 20, 240, 440, 46, Color.FromArgb(38, 38, 38), 12f);
             btnTest.Click += new EventHandler(OnTest);
 
             txtLog = new TextBox();
             txtLog.Multiline = true;
             txtLog.ReadOnly = true;
             txtLog.ScrollBars = ScrollBars.Vertical;
-            txtLog.Location = new Point(20, 248);
-            txtLog.Size = new Size(500, 250);
-            txtLog.BackColor = Color.FromArgb(16, 18, 22);
-            txtLog.ForeColor = Color.FromArgb(170, 178, 190);
+            txtLog.Location = new Point(20, 302);
+            txtLog.Size = new Size(440, 152);
+            txtLog.BackColor = Color.Black;
+            txtLog.ForeColor = Color.FromArgb(125, 125, 125);
             txtLog.BorderStyle = BorderStyle.None;
-            txtLog.Font = new Font("Consolas", 9f);
+            txtLog.Font = new Font("Consolas", 8.5f);
             this.Controls.Add(txtLog);
         }
-
         Button MakeBtn(string text, int x, int y, int w, int h, Color c) { return MakeBtn(text, x, y, w, h, c, 12f); }
 
         Button MakeBtn(string text, int x, int y, int w, int h, Color c, float fs)
