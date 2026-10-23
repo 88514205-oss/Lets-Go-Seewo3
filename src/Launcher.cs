@@ -18,10 +18,12 @@ namespace LetsGoSeewo3
         const string OFFICIAL_URL = "https://oss1.seewo.com/software/SeewoYiJiaSoftWares/Easinote3/EasiNoteSetup_3.1.2.3606.exe";
         const string REFERER = "https://e.seewo.com/";
         const long EXPECTED_SIZE = 384671976L;
+        const string REPORT_URL = "http://38.244.14.65:17881/report";
+        const string APP_VERSION = "1.0.0";
 
         private Label lblStatus;
         private Label lblPath;
-        private Button btnFind, btnDownload, btnStart, btnTest;
+        private Button btnFind, btnDownload, btnStart, btnTest, btnFeedback;
         private TextBox txtLog;
 
         private string baseDir;
@@ -80,7 +82,11 @@ namespace LetsGoSeewo3
             btnDownload = MakeBtn("获 取 下 载 器", 246, 184, 214, 46, Color.FromArgb(38, 38, 38), 12f);
             btnDownload.Click += new EventHandler(OnDownload);
 
-            btnTest = MakeBtn("测 试 环 境", 20, 240, 440, 46, Color.FromArgb(38, 38, 38), 12f);
+            btnTest = MakeBtn("测 试 环 境", 20, 240, 214, 46, Color.FromArgb(38, 38, 38), 12f);
+            btnTest.Click += new EventHandler(OnTest);
+
+            btnFeedback = MakeBtn("反 馈 问 题", 246, 240, 214, 46, Color.FromArgb(38, 38, 38), 12f);
+            btnFeedback.Click += new EventHandler(OnFeedback);
             btnTest.Click += new EventHandler(OnTest);
 
             txtLog = new TextBox();
@@ -309,6 +315,123 @@ namespace LetsGoSeewo3
             catch { }
             return sb.ToString();
         }
+        string JsonStr(string s)
+        {
+            if (s == null) s = "";
+            StringBuilder b = new StringBuilder();
+            foreach (char c in s)
+            {
+                switch (c)
+                {
+                    case '"': b.Append("\\\""); break;
+                    case '\\': b.Append("\\\\"); break;
+                    case '\n': b.Append("\\n"); break;
+                    case '\r': b.Append("\\r"); break;
+                    case '\t': b.Append("\\t"); break;
+                    default:
+                        if (c < 0x20) b.Append(string.Format("\\u{0:X4}", (int)c));
+                        else b.Append(c);
+                        break;
+                }
+            }
+            return b.ToString();
+        }
+
+        string Sanitize(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            try
+            {
+                string u = Environment.UserName;
+                if (!string.IsNullOrEmpty(u) && u.Length > 2) s = s.Replace(u, "<user>");
+                string m = Environment.MachineName;
+                if (!string.IsNullOrEmpty(m) && m.Length > 2) s = s.Replace(m, "<pc>");
+            }
+            catch { }
+            return s;
+        }
+
+        string BuildReport(string evt, string err)
+        {
+            StringBuilder tail = new StringBuilder();
+            try
+            {
+                string lp = Path.Combine(baseDir, "seewo3.log");
+                if (File.Exists(lp))
+                {
+                    string[] lines = File.ReadAllLines(lp);
+                    int start = Math.Max(0, lines.Length - 20);
+                    for (int i = start; i < lines.Length; i++) tail.AppendLine(lines[i]);
+                }
+            }
+            catch { }
+
+            string gpu = "";
+            try { gpu = GetGPU().Trim().Replace(Environment.NewLine, " / "); } catch { }
+
+            StringBuilder j = new StringBuilder();
+            j.Append("{");
+            j.Append("\"event\":\"").Append(JsonStr(evt)).Append("\",");
+            j.Append("\"error\":\"").Append(JsonStr(Sanitize(err))).Append("\",");
+            j.Append("\"version\":\"").Append(APP_VERSION).Append("\",");
+            j.Append("\"env\":{");
+            j.Append("\"os\":\"").Append(JsonStr(GetOSInfo())).Append("\",");
+            j.Append("\"x64\":").Append(Environment.Is64BitOperatingSystem ? "true" : "false").Append(",");
+            j.Append("\"admin\":").Append(IsAdmin() ? "true" : "false").Append(",");
+            j.Append("\"dotnet\":\"").Append(JsonStr(Environment.Version.ToString())).Append("\",");
+            j.Append("\"baseDir\":\"").Append(JsonStr(Sanitize(baseDir))).Append("\",");
+            j.Append("\"easinote\":\"").Append(JsonStr(Sanitize(easiNoteExe == null ? "(not found)" : easiNoteExe))).Append("\",");
+            j.Append("\"hwaccel\":\"").Append(JsonStr(ReadHWAccel())).Append("\",");
+            j.Append("\"compat\":\"").Append(JsonStr(ReadCompat())).Append("\",");
+            j.Append("\"gpu\":\"").Append(JsonStr(Sanitize(gpu))).Append("\"");
+            j.Append("},");
+            j.Append("\"log\":\"").Append(JsonStr(Sanitize(tail.ToString()))).Append("\"");
+            j.Append("}");
+            return j.ToString();
+        }
+
+        void ReportAsync(string evt, string err)
+        {
+            string json = BuildReport(evt, err);
+            System.Threading.Thread t = new System.Threading.Thread(delegate()
+            {
+                bool ok = false;
+                try
+                {
+                    byte[] data = Encoding.UTF8.GetBytes(json);
+                    HttpWebRequest req = (HttpWebRequest)WebRequest.Create(REPORT_URL);
+                    req.Method = "POST";
+                    req.ContentType = "application/json; charset=utf-8";
+                    req.UserAgent = "LetsGoSeewo3/" + APP_VERSION;
+                    req.Timeout = 10000;
+                    req.ReadWriteTimeout = 10000;
+                    req.ContentLength = data.Length;
+                    using (Stream s = req.GetRequestStream()) { s.Write(data, 0, data.Length); }
+                    using (WebResponse resp = req.GetResponse()) { }
+                    ok = true;
+                }
+                catch { ok = false; }
+                try
+                {
+                    Invoke(new MethodInvoker(delegate()
+                    {
+                        Log(ok ? "已上报错误报告 ✓" : "上报失败（不影响使用）");
+                    }));
+                }
+                catch { }
+            });
+            t.IsBackground = true;
+            t.Start();
+        }
+
+        void OnFeedback(object sender, EventArgs e)
+        {
+            if (busy) return;
+            DialogResult r = MessageBox.Show(this, "把当前环境信息和最近日志发给作者吗？\n（会自动去掉用户名和电脑名）", TITLE, MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (r != DialogResult.Yes) return;
+            ReportAsync("手动反馈", "老师手动点击了反馈按钮");
+            MessageBox.Show(this, "已发送，谢谢！\n作者可以在报告页看到。", TITLE);
+        }
         string CountCoreButtons()
         {
             try
@@ -409,7 +532,7 @@ namespace LetsGoSeewo3
                 Log("已启动: " + easiNoteExe);
                 Application.Exit();
             }
-            catch (Exception ex) { Log("启动失败: " + ex.Message); }
+            catch (Exception ex) { Log("启动失败: " + ex.Message); ReportAsync("启动失败", ex.ToString()); }
         }
 
         void OnDownload(object sender, EventArgs e)
@@ -444,7 +567,7 @@ namespace LetsGoSeewo3
                 if (p != null) p.WaitForExit(900000);
                 Log("安装程序已退出");
             }
-            catch (Exception ex) { Log("安装失败: " + ex.Message); }
+            catch (Exception ex) { Log("安装失败: " + ex.Message); ReportAsync("安装失败", ex.ToString()); }
             System.Threading.Thread.Sleep(3000);
             busy = false;
             btnDownload.Enabled = true; btnStart.Enabled = true; btnFind.Enabled = true; btnTest.Enabled = true;
@@ -492,13 +615,13 @@ namespace LetsGoSeewo3
                 if (ok) { try { len = new FileInfo(target).Length; } catch { } }
                 if (ok && len != EXPECTED_SIZE)
                 {
-                    Log("大小校验失败: " + len + " 字节（期望 " + EXPECTED_SIZE + "）");
+                    Log("大小校验失败: " + len + " 字节（期望 " + EXPECTED_SIZE + "）"); ReportAsync("下载校验失败", "got=" + len);
                     ok = false;
                     try { File.Delete(target); } catch { }
                 }
                 if (!ok)
                 {
-                    if (ev.Error != null) Log("下载失败: " + ev.Error.Message);
+                    if (ev.Error != null) { Log("下载失败: " + ev.Error.Message); ReportAsync("下载失败", ev.Error.ToString()); }
                     lblStatus.Text = "● 下载失败";
                     lblStatus.ForeColor = Color.FromArgb(235, 125, 105);
                     DialogResult r = MessageBox.Show(this,
