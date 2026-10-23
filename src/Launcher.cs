@@ -38,52 +38,62 @@ namespace LetsGoSeewo3
         void BuildUI()
         {
             this.Text = TITLE;
-            this.ClientSize = new Size(460, 296);
+            this.ClientSize = new Size(480, 470);
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
             this.StartPosition = FormStartPosition.CenterScreen;
-            this.BackColor = Color.FromArgb(10, 10, 10);
+            this.BackColor = Color.FromArgb(13, 13, 13);
             this.Font = new Font("微软雅黑", 10f);
-            this.KeyPreview = true;
-            this.KeyDown += new KeyEventHandler(delegate(object s, KeyEventArgs ke) { if (ke.KeyCode == Keys.Enter) OnStart(s, EventArgs.Empty); });
 
             Label t = new Label();
             t.Text = TITLE;
-            t.Font = new Font("微软雅黑", 17f, FontStyle.Bold);
+            t.Font = new Font("微软雅黑", 18f, FontStyle.Bold);
             t.ForeColor = Color.White;
-            t.Location = new Point(18, 14);
-            t.Size = new Size(424, 34);
+            t.Location = new Point(20, 16);
+            t.Size = new Size(440, 36);
             this.Controls.Add(t);
 
             lblStatus = new Label();
             lblStatus.Text = "正在检测...";
-            lblStatus.Font = new Font("微软雅黑", 10.5f);
-            lblStatus.ForeColor = Color.FromArgb(185, 185, 185);
-            lblStatus.Location = new Point(20, 52);
-            lblStatus.Size = new Size(420, 22);
+            lblStatus.Font = new Font("微软雅黑", 11f);
+            lblStatus.ForeColor = Color.FromArgb(190, 190, 190);
+            lblStatus.Location = new Point(22, 58);
+            lblStatus.Size = new Size(440, 24);
             this.Controls.Add(lblStatus);
 
             lblPath = new Label();
             lblPath.Text = "";
             lblPath.Font = new Font("微软雅黑", 7.5f);
-            lblPath.ForeColor = Color.FromArgb(100, 100, 100);
-            lblPath.Location = new Point(22, 74);
-            lblPath.Size = new Size(418, 16);
-            txtLog = null;
+            lblPath.ForeColor = Color.FromArgb(105, 105, 105);
+            lblPath.Location = new Point(24, 82);
+            lblPath.Size = new Size(438, 18);
+            this.Controls.Add(lblPath);
 
-            btnStart = MakeBtn("启 动", 18, 100, 424, 66, Color.FromArgb(27, 160, 92), 19f);
+            // 唯一带颜色的：启动
+            btnStart = MakeBtn("启 动", 20, 110, 440, 64, Color.FromArgb(27, 160, 92), 18f);
             btnStart.Click += new EventHandler(OnStart);
 
-            btnFind = MakeBtn("寻 找", 18, 176, 206, 44, Color.FromArgb(34, 34, 34), 11.5f);
+            // 其余全灰
+            btnFind = MakeBtn("寻 找", 20, 184, 214, 46, Color.FromArgb(38, 38, 38), 12f);
             btnFind.Click += new EventHandler(OnFind);
 
-            btnDownload = MakeBtn("获 取 下 载 器", 236, 176, 206, 44, Color.FromArgb(34, 34, 34), 11.5f);
+            btnDownload = MakeBtn("获 取 下 载 器", 246, 184, 214, 46, Color.FromArgb(38, 38, 38), 12f);
             btnDownload.Click += new EventHandler(OnDownload);
 
-            btnTest = MakeBtn("测 试 环 境", 18, 228, 424, 44, Color.FromArgb(34, 34, 34), 11.5f);
+            btnTest = MakeBtn("测 试 环 境", 20, 240, 440, 46, Color.FromArgb(38, 38, 38), 12f);
             btnTest.Click += new EventHandler(OnTest);
 
-            this.Controls.Add(lblPath);
+            txtLog = new TextBox();
+            txtLog.Multiline = true;
+            txtLog.ReadOnly = true;
+            txtLog.ScrollBars = ScrollBars.Vertical;
+            txtLog.Location = new Point(20, 302);
+            txtLog.Size = new Size(440, 152);
+            txtLog.BackColor = Color.Black;
+            txtLog.ForeColor = Color.FromArgb(125, 125, 125);
+            txtLog.BorderStyle = BorderStyle.None;
+            txtLog.Font = new Font("Consolas", 8.5f);
+            this.Controls.Add(txtLog);
         }
         Button MakeBtn(string text, int x, int y, int w, int h, Color c) { return MakeBtn(text, x, y, w, h, c, 12f); }
 
@@ -103,11 +113,9 @@ namespace LetsGoSeewo3
             return b;
         }
 
-        StringBuilder logBuf = new StringBuilder();
-
         void Log(string m)
         {
-            logBuf.AppendLine(DateTime.Now.ToString("HH:mm:ss  ") + m);
+            txtLog.AppendText(DateTime.Now.ToString("HH:mm:ss  ") + m + Environment.NewLine);
             try { File.AppendAllText(Path.Combine(baseDir, "seewo3.log"), DateTime.Now.ToString("MM-dd HH:mm:ss  ") + m + Environment.NewLine, Encoding.UTF8); }
             catch { }
         }
@@ -559,29 +567,7 @@ namespace LetsGoSeewo3
                 if (hw) Log("✅ 关键设置到位，点「启动」应该能正常进入。");
                 else Log("⚠️ 硬件加速还没关，直接点「启动」会自动补上。");
             }
-            Log("（以上信息可直接截图发给白糖）");
-            using (Form f2 = new Form())
-            {
-                f2.Text = "环境检测";
-                f2.ClientSize = new Size(560, 470);
-                f2.StartPosition = FormStartPosition.CenterParent;
-                f2.BackColor = Color.FromArgb(10, 10, 10);
-                f2.FormBorderStyle = FormBorderStyle.FixedDialog;
-                f2.MaximizeBox = false;
-                f2.MinimizeBox = false;
-                TextBox tb = new TextBox();
-                tb.Multiline = true;
-                tb.ReadOnly = true;
-                tb.ScrollBars = ScrollBars.Vertical;
-                tb.Dock = DockStyle.Fill;
-                tb.BackColor = Color.Black;
-                tb.ForeColor = Color.FromArgb(190, 190, 190);
-                tb.BorderStyle = BorderStyle.None;
-                tb.Font = new Font("Consolas", 9f);
-                tb.Text = logBuf.ToString();
-                f2.Controls.Add(tb);
-                f2.ShowDialog(this);
-            }
+            Log("（这个面板的信息可以直接截图发给白糖）");
         }
 
         [STAThread]
